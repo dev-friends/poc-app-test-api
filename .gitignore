@@ -35,3 +35,10 @@
 # Local agent tooling state, not part of the app.
 /.claude/
 
+# opencode credentials/config, persisted on the host and bind-mounted into
+# the container (see docker-compose.yml) — never commit real credentials.
+/opencode/data/*
+!/opencode/data/.keep
+/opencode/config/*
+!/opencode/config/.keep
+

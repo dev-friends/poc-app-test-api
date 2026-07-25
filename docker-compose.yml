@@ -8,6 +8,8 @@ services:
       SAMPLE_EXTERNAL_APP_URL: ${SAMPLE_EXTERNAL_APP_URL:-https://the-internet.herokuapp.com}
     volumes:
       - db_data:/rails/storage
+      - ./opencode/data:/home/rails/.local/share/opencode
+      - ./opencode/config:/home/rails/.config/opencode
 
   jobs:
     build: .
@@ -17,6 +19,8 @@ services:
       SAMPLE_EXTERNAL_APP_URL: ${SAMPLE_EXTERNAL_APP_URL:-https://the-internet.herokuapp.com}
     volumes:
       - db_data:/rails/storage
+      - ./opencode/data:/home/rails/.local/share/opencode
+      - ./opencode/config:/home/rails/.config/opencode
     depends_on:
       - web
 

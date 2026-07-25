@@ -17,7 +17,7 @@ WORKDIR /rails
 # Install base packages, plus Chromium so Cuprite (the UI test suite's headless
 # browser driver) has something to run against inside the container.
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y curl libjemalloc2 libvips sqlite3 chromium fonts-liberation && \
+    apt-get install --no-install-recommends -y curl tar libjemalloc2 libvips sqlite3 chromium fonts-liberation && \
     ln -s /usr/lib/$(uname -m)-linux-gnu/libjemalloc.so.2 /usr/local/lib/libjemalloc.so && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
@@ -67,6 +67,12 @@ USER 1000:1000
 # Copy built artifacts: gems, application
 COPY --chown=rails:rails --from=build "${BUNDLE_PATH}" "${BUNDLE_PATH}"
 COPY --chown=rails:rails --from=build /rails /rails
+
+# opencode CLI (https://opencode.ai) — run manually via
+# `docker compose exec web opencode` (see README). --no-modify-path since
+# this is a non-interactive image; PATH is set explicitly below instead.
+RUN curl -fsSL https://opencode.ai/install | bash -s -- --no-modify-path
+ENV PATH="/home/rails/.opencode/bin:${PATH}"
 
 # Entrypoint prepares the database.
 ENTRYPOINT ["/rails/bin/docker-entrypoint"]

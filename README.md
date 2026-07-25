@@ -152,6 +152,28 @@ docker compose down -v        # also wipe the SQLite volume (fresh start)
   site is very likely just asleep (see the note further below) — retrigger
   the run.
 
+### Running opencode inside the container
+
+The image also has [opencode](https://opencode.ai) installed (same
+`web`/`jobs` image, no extra build step needed) so you can use it against
+this codebase from inside the container:
+
+```bash
+# first time only, interactive login:
+docker compose exec web opencode auth login
+
+# then just run it:
+docker compose exec web opencode
+```
+
+Credentials and config persist across container restarts/rebuilds: the
+`opencode/data` and `opencode/config` directories in this repo are
+bind-mounted to `~/.local/share/opencode` and `~/.config/opencode` inside the
+container (see `docker-compose.yml`), which is where opencode stores its
+`auth.json` and settings respectively. Both directories are gitignored — the
+folders themselves are tracked (via `.keep`) but their contents (your actual
+credentials) never get committed.
+
 ## Triggering a run and viewing results
 
 Out of the box — with no configuration — the bundled example specs run
