@@ -171,12 +171,14 @@ Authenticate one of two ways:
 docker compose exec web opencode
 ```
 
-Either way, credentials and config persist across container
-restarts/rebuilds: the `opencode/data` and `opencode/config` directories in
-this repo are bind-mounted to `~/.local/share/opencode` and
-`~/.config/opencode` inside the container (see `docker-compose.yml`). Both
-directories are gitignored — the folders themselves are tracked (via
-`.keep`) but their contents (your actual credentials) never get committed.
+Either way, both persist across container restarts/rebuilds via bind mounts
+declared in `docker-compose.yml`:
+
+- `opencode/data` → `~/.local/share/opencode` — holds `auth.json`. This is
+  gitignored, so credentials never get committed.
+- `opencode/config` → `~/.config/opencode` — holds `opencode.json` and
+  similar settings. Unlike `opencode/data`, this one is **not** gitignored,
+  so any config you put there is tracked and shared through the repo.
 
 ## Triggering a run and viewing results
 
