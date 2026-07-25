@@ -158,21 +158,25 @@ The image also has [opencode](https://opencode.ai) installed (same
 `web`/`jobs` image, no extra build step needed) so you can use it against
 this codebase from inside the container:
 
-```bash
-# first time only, interactive login:
-docker compose exec web opencode auth login
+Authenticate one of two ways:
 
-# then just run it:
+- **Env var (recommended for this setup)**: set `OPENCODE_API_KEY` in `.env`.
+  The entrypoint (`bin/docker-entrypoint`) writes it into
+  `~/.local/share/opencode/auth.json` on every boot, so both `web` and `jobs`
+  come up already authenticated — nothing to do inside the container.
+- **Interactive login**: leave `OPENCODE_API_KEY` unset and run
+  `docker compose exec web opencode auth login` the first time.
+
+```bash
 docker compose exec web opencode
 ```
 
-Credentials and config persist across container restarts/rebuilds: the
-`opencode/data` and `opencode/config` directories in this repo are
-bind-mounted to `~/.local/share/opencode` and `~/.config/opencode` inside the
-container (see `docker-compose.yml`), which is where opencode stores its
-`auth.json` and settings respectively. Both directories are gitignored — the
-folders themselves are tracked (via `.keep`) but their contents (your actual
-credentials) never get committed.
+Either way, credentials and config persist across container
+restarts/rebuilds: the `opencode/data` and `opencode/config` directories in
+this repo are bind-mounted to `~/.local/share/opencode` and
+`~/.config/opencode` inside the container (see `docker-compose.yml`). Both
+directories are gitignored — the folders themselves are tracked (via
+`.keep`) but their contents (your actual credentials) never get committed.
 
 ## Triggering a run and viewing results
 

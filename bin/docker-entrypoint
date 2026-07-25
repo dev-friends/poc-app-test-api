@@ -5,4 +5,18 @@ if [ "${@: -2:1}" == "./bin/rails" ] && [ "${@: -1:1}" == "server" ]; then
   ./bin/rails db:prepare
 fi
 
+# Populate opencode's auth.json from OPENCODE_API_KEY so the credential lives
+# in an env var (.env) instead of being hardcoded in the opencode/data volume.
+if [ -n "${OPENCODE_API_KEY}" ]; then
+  mkdir -p "${HOME}/.local/share/opencode"
+  cat > "${HOME}/.local/share/opencode/auth.json" <<JSON
+{
+  "opencode": {
+    "type": "api",
+    "key": "${OPENCODE_API_KEY}"
+  }
+}
+JSON
+fi
+
 exec "${@}"
