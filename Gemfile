@@ -54,6 +54,9 @@ group :development, :test do
   # Omakase Ruby styling [https://github.com/rails/rubocop-rails-omakase/]
   gem "rubocop-rails-omakase", require: false
 
+  # Language server for editor tooling
+  gem "ruby-lsp", require: false
+
   # Tests the Rails app itself (controllers/models/jobs), separate from the
   # standalone RSpec suite in test_suites/external_app that tests the target app.
   gem "rspec-rails", "~> 7.0"

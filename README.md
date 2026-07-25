@@ -78,16 +78,79 @@ foreman start -f Procfile.dev
 
 ## Setup with Docker
 
+Requirements: Docker and Docker Compose (`docker compose version`). Nothing
+else — Ruby, Chromium and every gem are built into the image.
+
+### 1. Configure environment variables
+
 ```bash
 cp .env.example .env
-# edit .env: RAILS_MASTER_KEY=<contents of config/master.key>
+```
 
+Edit `.env` and set `RAILS_MASTER_KEY` to the contents of `config/master.key`
+(Rails needs it to boot in `RAILS_ENV=production`, which is what the
+container runs):
+
+```bash
+echo "RAILS_MASTER_KEY=$(cat config/master.key)" > .env
+echo "SAMPLE_EXTERNAL_APP_URL=https://the-internet.herokuapp.com" >> .env
+```
+
+`.env` is gitignored — never commit it or `config/master.key`.
+
+### 2. Build and start
+
+```bash
 docker compose up --build
 ```
 
-This starts two containers from the same image: `web` (Puma, port 3000) and
-`jobs` (the Solid Queue worker), sharing a SQLite volume. The image installs
-Chromium so Cuprite has a browser to drive headlessly.
+(add `-d` to run in the background). This builds one image and starts two
+containers from it:
+
+- `web` — Puma, serving the API on `http://localhost:3000` (proxied through
+  Thruster, which listens on container port 80 and forwards to Rails on
+  3000 internally).
+- `jobs` — the Solid Queue worker (`bin/jobs`), which is what actually runs
+  `bundle exec rspec` against the target app when a test run is triggered.
+
+Both share a `db_data` volume (`/rails/storage`) so they see the same SQLite
+databases. The image installs Chromium (`chromium` + `fonts-liberation`) so
+Cuprite has a real headless browser to drive inside the container.
+
+### 3. Use the API
+
+Same requests as the local setup, just against the containerized server:
+
+```bash
+curl http://localhost:3000/test_runs/status
+curl -X POST http://localhost:3000/test_runs
+curl http://localhost:3000/test_runs/1/results
+```
+
+### 4. Logs, rebuilding, stopping
+
+```bash
+docker compose logs -f jobs   # watch the worker pick up and run a test suite
+docker compose logs -f web    # watch request/response activity
+
+docker compose up --build     # rebuild after changing the Gemfile or code
+
+docker compose down           # stop and remove containers (keeps the db_data volume)
+docker compose down -v        # also wipe the SQLite volume (fresh start)
+```
+
+### Troubleshooting
+
+- **Boots but every request 500s with a decryption error**: `RAILS_MASTER_KEY`
+  in `.env` doesn't match `config/master.key` (or wasn't set at all).
+- **`SolidQueue::Job::EnqueueError` / "Could not find table"**: the queue
+  database wasn't migrated — rebuild (`docker compose up --build`), which
+  runs `bin/docker-entrypoint` → `bin/rails db:prepare` on boot.
+- **A run finishes in a second or two with every example failing**: check
+  `docker compose logs jobs` for the actual Capybara/Cuprite error first.
+  If it's a Capybara timeout on the bundled example specs, the public demo
+  site is very likely just asleep (see the note further below) — retrigger
+  the run.
 
 ## Triggering a run and viewing results
 
