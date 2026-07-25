@@ -63,6 +63,12 @@ FROM base
 RUN groupadd --system --gid 1000 rails && \
     useradd rails --uid 1000 --gid 1000 --create-home --shell /bin/bash
 
+# WORKDIR (in the base stage) created /rails as root before this user
+# existed, and `COPY --chown` below only chowns what it copies IN, not the
+# pre-existing /rails directory entry itself — without this, `rails` could
+# read/traverse /rails but not create new top-level files in it.
+RUN chown rails:rails /rails
+
 # Pre-create opencode's XDG directories owned by `rails` before anything gets
 # bind-mounted on top of .local/share/opencode or .config/opencode — Docker
 # creates missing bind-mount parent directories as root otherwise, which then
