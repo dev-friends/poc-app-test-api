@@ -1,6 +1,6 @@
 require "spec_helper"
 
-RSpec.describe "Login" do
+RSpec.describe "Login", app_host: "https://the-internet.herokuapp.com" do
   it "authenticates with valid credentials" do
     visit "/login"
     fill_in "username", with: "tomsmith"

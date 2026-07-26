@@ -11,11 +11,11 @@ class RunExternalTestSuiteJob < ApplicationJob
     json_path = Rails.root.join("tmp", "test_runs", "run_#{test_run.id}.json")
     FileUtils.mkdir_p(json_path.dirname)
 
+    env = { "HEADLESS" => "true" }
+    env["TARGET_URL"] = test_run.target_url if test_run.target_url.present?
+
     _stdout, stderr, process_status = Open3.capture3(
-      {
-        "SAMPLE_EXTERNAL_APP_URL" => test_run.target_url.presence || ENV["SAMPLE_EXTERNAL_APP_URL"],
-        "HEADLESS" => "true"
-      },
+      env,
       "bundle", "exec", "rspec",
       "-O", suite_dir.join(".rspec").to_s,
       "--require", suite_dir.join("spec_helper").to_s,

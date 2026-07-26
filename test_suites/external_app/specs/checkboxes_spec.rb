@@ -1,6 +1,6 @@
 require "spec_helper"
 
-RSpec.describe "Checkboxes" do
+RSpec.describe "Checkboxes", app_host: "https://the-internet.herokuapp.com" do
   it "starts with the first checkbox unchecked and the second checked" do
     visit "/checkboxes"
 

@@ -17,8 +17,8 @@ the current design, why things are built the way they are — see
    `bundle exec rspec` against the standalone suite in
    `test_suites/external_app/`, and marks the run `running`.
 4. That suite drives a headless Chrome browser (via Capybara + Cuprite)
-   against the external application's UI, at the URL configured by
-   `SAMPLE_EXTERNAL_APP_URL` (or the `target_url` passed when triggering).
+   against the external application's UI, at the `target_url` passed when
+   triggering the run (falls back to a public demo site if omitted).
 5. RSpec's `--format json` output is parsed by the job and persisted as a
    `TestCaseResult` per example, and the `TestRun` is marked `completed` or
    `failed`.
@@ -116,7 +116,6 @@ container runs):
 
 ```bash
 echo "RAILS_MASTER_KEY=$(cat config/master.key)" > .env
-echo "SAMPLE_EXTERNAL_APP_URL=https://the-internet.herokuapp.com" >> .env
 ```
 
 `.env` is gitignored — never commit it or `config/master.key`.
@@ -250,9 +249,8 @@ curl http://localhost:3000/test_runs
 
 ## Pointing at the real application under test
 
-1. Set `SAMPLE_EXTERNAL_APP_URL` (env var, used as the default) or pass
-   `target_url` in the `POST /test_runs` body (used for that run only) to
-   the real app's base URL.
+1. Pass `target_url` in the `POST /test_runs` body, set to the real app's
+   base URL (used for that run only).
 2. Add specs under `test_suites/external_app/specs/` that exercise its
    screens with Capybara (`visit`, `fill_in`, `click_button`,
    `expect(page).to have_content(...)`, etc.).

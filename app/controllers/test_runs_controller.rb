@@ -10,7 +10,7 @@ class TestRunsController < ApplicationController
   end
 
   def create
-    test_run = TestRun.new(status: :pending, target_url: params[:target_url].presence || ENV["SAMPLE_EXTERNAL_APP_URL"])
+    test_run = TestRun.new(status: :pending, target_url: params[:target_url].presence)
     test_run.save!
     RunExternalTestSuiteJob.perform_later(test_run.id)
     render json: TestRunSerializer.new(test_run).as_json, status: :created

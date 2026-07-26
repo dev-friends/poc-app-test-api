@@ -54,7 +54,7 @@ graph TB
     Jobs["jobs — Solid Queue worker<br/>(bin/jobs)"]
   end
   DB[("SQLite<br/>primary + queue db")]
-  Ext["External app under test<br/>(any URL, via SAMPLE_EXTERNAL_APP_URL)"]
+  Ext["External app under test<br/>(any URL, via target_url)"]
   OC["opencode CLI<br/>(baked into the image)"]
   Repo[("/rails<br/>bind-mounted repo")]
 
@@ -181,11 +181,11 @@ run also means a Cuprite/Chrome crash takes down one job, not the worker.
 
 ```ruby
 # app/jobs/run_external_test_suite_job.rb (excerpt)
+env = { "HEADLESS" => "true" }
+env["TARGET_URL"] = test_run.target_url if test_run.target_url.present?
+
 _stdout, stderr, process_status = Open3.capture3(
-  {
-    "SAMPLE_EXTERNAL_APP_URL" => test_run.target_url.presence || ENV["SAMPLE_EXTERNAL_APP_URL"],
-    "HEADLESS" => "true"
-  },
+  env,
   "bundle", "exec", "rspec",
   "-O", suite_dir.join(".rspec").to_s,
   "--require", suite_dir.join("spec_helper").to_s,
@@ -357,7 +357,7 @@ check:
 ```ruby
 # app/controllers/test_runs_controller.rb#create
 def create
-  test_run = TestRun.new(status: :pending, target_url: params[:target_url].presence || ENV["SAMPLE_EXTERNAL_APP_URL"])
+  test_run = TestRun.new(status: :pending, target_url: params[:target_url].presence)
   test_run.save!
   RunExternalTestSuiteJob.perform_later(test_run.id)
   render json: TestRunSerializer.new(test_run).as_json, status: :created
@@ -418,7 +418,7 @@ kept from ever sharing a boot path.
 
 | | `spec/` | `test_suites/external_app/` |
 |---|---|---|
-| Tests | this Rails app (controllers, jobs, models) | whatever external app `SAMPLE_EXTERNAL_APP_URL` points at |
+| Tests | this Rails app (controllers, jobs, models) | whatever external app `target_url` points at |
 | Gems | `rspec-rails` | plain `rspec` + `capybara` + `cuprite` |
 | Boots Rails? | yes | no — standalone, no `rails_helper` |
 | Invoked by | a developer running `bundle exec rspec` | `RunExternalTestSuiteJob`, as a subprocess |
@@ -430,7 +430,7 @@ everything is remote HTTP:
 
 ```ruby
 # test_suites/external_app/support/capybara_setup.rb
-Capybara.app_host = ENV.fetch("SAMPLE_EXTERNAL_APP_URL", "https://the-internet.herokuapp.com")
+Capybara.app_host = ENV.fetch("TARGET_URL", "https://the-internet.herokuapp.com")
 Capybara.run_server = false
 Capybara.default_driver = :cuprite
 

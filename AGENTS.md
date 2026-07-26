@@ -79,11 +79,17 @@ Use `bin/rails db:prepare`, not `db:migrate`, so all of them are handled.
   is gitignored; `opencode/config/` is **tracked** — don't put secrets there.
 - JSON is rendered by hand-rolled classes in `app/serializers/` (plain POROs with
   `as_json`), not a serializer gem. Follow that pattern.
-- Default target when `SAMPLE_EXTERNAL_APP_URL` is unset is
+- Default target when no `target_url` is passed to `POST /test_runs` is
   `https://the-internet.herokuapp.com`, a sleeping free Heroku dyno — the first run
   after idle can fail transiently. One example in `test_suites/external_app/specs/`
   fails *deliberately* to demonstrate `error_message` capture.
 - A spec that must always hit a different, fixed host (independent of whatever
-  `SAMPLE_EXTERNAL_APP_URL`/`target_url` the run uses) can tag its `describe` block
-  with `app_host: "https://..."`; `support/app_host.rb` overrides
-  `Capybara.app_host` for just that spec's examples and restores it afterward.
+  `target_url` the run uses) can tag its `describe` block with `app_host:
+  "https://..."`; `support/app_host.rb` overrides `Capybara.app_host` for
+  just that spec's examples and restores it afterward. The three bundled
+  example specs are tagged this way, pinned to
+  `https://the-internet.herokuapp.com` — so pointing `target_url` at a real
+  app for your own new specs won't break them.
+- `RunExternalTestSuiteJob` forwards `target_url` to the RSpec subprocess as
+  the `TARGET_URL` env var (only when present — no more env-var-based
+  default), read by `test_suites/external_app/support/capybara_setup.rb`.
