@@ -4,6 +4,10 @@ A Rails API that runs UI (browser) tests against an external application and
 exposes the run status and results over HTTP, so another application can
 trigger test runs and consume their results.
 
+For a deeper dive — sequence diagrams, the two production bugs that shaped
+the current design, why things are built the way they are — see
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
 ## How it works
 
 1. A client `POST`s to `/test_runs` to trigger a run.
