@@ -83,3 +83,7 @@ Use `bin/rails db:prepare`, not `db:migrate`, so all of them are handled.
   `https://the-internet.herokuapp.com`, a sleeping free Heroku dyno — the first run
   after idle can fail transiently. One example in `test_suites/external_app/specs/`
   fails *deliberately* to demonstrate `error_message` capture.
+- A spec that must always hit a different, fixed host (independent of whatever
+  `SAMPLE_EXTERNAL_APP_URL`/`target_url` the run uses) can tag its `describe` block
+  with `app_host: "https://..."`; `support/app_host.rb` overrides
+  `Capybara.app_host` for just that spec's examples and restores it afterward.
