@@ -59,5 +59,5 @@ group :development, :test do
 
   # Tests the Rails app itself (controllers/models/jobs), separate from the
   # standalone RSpec suite in test_suites/external_app that tests the target app.
-  gem "rspec-rails", "~> 7.0"
+  gem "rspec-rails", "~> 8.0"
 end
