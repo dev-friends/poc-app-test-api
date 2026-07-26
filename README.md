@@ -117,6 +117,16 @@ Both share a `db_data` volume (`/rails/storage`) so they see the same SQLite
 databases. The image installs Chromium (`chromium` + `fonts-liberation`) so
 Cuprite has a real headless browser to drive inside the container.
 
+The whole repo is also bind-mounted to `/rails` (`.:/rails` in
+`docker-compose.yml`), so this isn't a frozen production snapshot: edits you
+make on the host (or from `opencode` running inside the container) show up
+immediately, in both directions, with no rebuild. Gems live in a separate
+path baked into the image (`/usr/local/bundle`), so they're unaffected by the
+mount — you only need to rebuild after changing the `Gemfile` or the
+`Dockerfile` itself. The more specific `db_data:/rails/storage` mount still
+takes precedence over this one, so the SQLite databases stay in the named
+volume rather than leaking into your local `storage/` directory.
+
 ### 3. Use the API
 
 Same requests as the local setup, just against the containerized server:
@@ -133,7 +143,8 @@ curl http://localhost:3000/test_runs/1/results
 docker compose logs -f jobs   # watch the worker pick up and run a test suite
 docker compose logs -f web    # watch request/response activity
 
-docker compose up --build     # rebuild after changing the Gemfile or code
+docker compose up --build     # rebuild after changing the Gemfile or Dockerfile
+                               # (plain code edits show up live, no rebuild needed)
 
 docker compose down           # stop and remove containers (keeps the db_data volume)
 docker compose down -v        # also wipe the SQLite volume (fresh start)
