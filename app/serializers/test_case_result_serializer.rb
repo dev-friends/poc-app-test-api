@@ -13,6 +13,7 @@ class TestCaseResultSerializer
       line_number: r.line_number,
       status: r.status,
       run_time: r.run_time,
+      target_url: r.target_url,
       error_message: r.error_message,
       error_backtrace: r.error_backtrace
     }

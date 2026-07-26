@@ -25,13 +25,12 @@ RSpec.describe "TestRuns", type: :request do
   describe "POST /test_runs" do
     it "creates a pending run and enqueues the job" do
       expect {
-        post "/test_runs", params: { target_url: "https://example.com" }, headers: auth_headers
+        post "/test_runs", headers: auth_headers
       }.to have_enqueued_job(RunExternalTestSuiteJob)
 
       expect(response).to have_http_status(:created)
       body = response.parsed_body
       expect(body["status"]).to eq("pending")
-      expect(TestRun.find(body["id"]).target_url).to eq("https://example.com")
     end
 
     it "returns 409 when a run is already active" do

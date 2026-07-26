@@ -11,15 +11,12 @@ class RunExternalTestSuiteJob < ApplicationJob
     json_path = Rails.root.join("tmp", "test_runs", "run_#{test_run.id}.json")
     FileUtils.mkdir_p(json_path.dirname)
 
-    env = { "HEADLESS" => "true" }
-    env["TARGET_URL"] = test_run.target_url if test_run.target_url.present?
-
     _stdout, stderr, process_status = Open3.capture3(
-      env,
+      { "HEADLESS" => "true" },
       "bundle", "exec", "rspec",
       "-O", suite_dir.join(".rspec").to_s,
       "--require", suite_dir.join("spec_helper").to_s,
-      "--format", "json", "--out", json_path.to_s,
+      "--format", "JsonWithAppHostFormatter", "--out", json_path.to_s,
       suite_dir.join("specs").to_s,
       chdir: Rails.root.to_s
     )
@@ -53,6 +50,7 @@ class RunExternalTestSuiteJob < ApplicationJob
           line_number: ex["line_number"],
           status: %w[passed failed pending].include?(ex["status"]) ? ex["status"] : "failed",
           run_time: ex["run_time"],
+          target_url: ex["app_host"],
           error_message: ex.dig("exception", "message"),
           error_backtrace: Array(ex.dig("exception", "backtrace")).join("\n")
         )

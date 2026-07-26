@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_26_003800) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_26_183746) do
   create_table "opencode_runs", force: :cascade do |t|
     t.string "agent"
     t.string "continue_session_id"
@@ -41,6 +41,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_26_003800) do
     t.integer "line_number"
     t.float "run_time"
     t.string "status", null: false
+    t.string "target_url"
     t.integer "test_run_id", null: false
     t.datetime "updated_at", null: false
     t.index ["test_run_id", "status"], name: "index_test_case_results_on_test_run_id_and_status"
@@ -56,7 +57,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_26_003800) do
     t.integer "pending_count", default: 0, null: false
     t.datetime "started_at"
     t.string "status", default: "pending", null: false
-    t.string "target_url"
     t.integer "total_count", default: 0, null: false
     t.datetime "updated_at", null: false
     t.index "(1)", name: "index_test_runs_on_active_status", unique: true, where: "status IN ('pending','running')"

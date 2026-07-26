@@ -1,6 +1,6 @@
 # Lets an individual spec/describe block target a fixed host different from
-# the suite-wide Capybara.app_host (set once in capybara_setup.rb from the
-# TARGET_URL env var / target_url). Usage:
+# the suite-wide default Capybara.app_host (set once in capybara_setup.rb).
+# Usage:
 #
 #   RSpec.describe "Other site", app_host: "https://other-site.example.com" do
 #     it { visit "/path" } # resolves against the tagged host, not the suite default

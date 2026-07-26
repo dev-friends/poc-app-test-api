@@ -17,10 +17,12 @@ the current design, why things are built the way they are — see
    `bundle exec rspec` against the standalone suite in
    `test_suites/external_app/`, and marks the run `running`.
 4. That suite drives a headless Chrome browser (via Capybara + Cuprite)
-   against the external application's UI, at the `target_url` passed when
-   triggering the run (falls back to a public demo site if omitted).
-5. RSpec's `--format json` output is parsed by the job and persisted as a
-   `TestCaseResult` per example, and the `TestRun` is marked `completed` or
+   against the external application's UI. Each spec pins its own host via
+   an `app_host:` tag (falls back to a public demo site if a spec omits it).
+5. RSpec's JSON output (including each example's `app_host`) is parsed by
+   the job and persisted as a `TestCaseResult` per example — `target_url`
+   there reflects that example's `app_host` — and the `TestRun` is marked
+   `completed` or
    `failed`.
 6. The client polls `/test_runs/status` and reads `/test_runs/:id/results`.
 
@@ -249,11 +251,23 @@ curl http://localhost:3000/test_runs
 
 ## Pointing at the real application under test
 
-1. Pass `target_url` in the `POST /test_runs` body, set to the real app's
-   base URL (used for that run only).
-2. Add specs under `test_suites/external_app/specs/` that exercise its
-   screens with Capybara (`visit`, `fill_in`, `click_button`,
-   `expect(page).to have_content(...)`, etc.).
+Add specs under `test_suites/external_app/specs/` tagged with the real
+app's base URL, and exercise its screens with Capybara (`visit`, `fill_in`,
+`click_button`, `expect(page).to have_content(...)`, etc.):
+
+```ruby
+RSpec.describe "My real app", app_host: "https://my-real-app.example.com" do
+  it "..." do
+    visit "/login"
+    # ...
+  end
+end
+```
+
+There's no request-level `target_url` — each spec pins its own host, and
+that value is what shows up as `target_url` on its `TestCaseResult` (see
+"API reference" below). A spec without an `app_host:` tag falls back to the
+suite-wide default (a public demo site) and its `target_url` stays `null`.
 
 ## opencode API
 
@@ -296,7 +310,7 @@ line, so that one *is* split into a JSON array.
 | Method | Route                       | Description                                                                |
 |--------|-----------------------------|------------------------------------------------------------------------------|
 | GET    | `/test_runs/status`         | `{ running, current_run, last_run, ever_run }` — current state at a glance |
-| POST   | `/test_runs`                 | Triggers a run (`target_url` optional). `201` + run, or `409` if one is active |
+| POST   | `/test_runs`                 | Triggers a run. `201` + run, or `409` if one is active                    |
 | GET    | `/test_runs`                 | Lists past runs (most recent first)                                       |
 | GET    | `/test_runs/:id`             | One run, with its `test_case_results` nested                             |
 | GET    | `/test_runs/:id/results`     | Just the individual test case results for that run                       |
@@ -314,7 +328,6 @@ Example `GET /test_runs/:id`:
 {
   "id": 1,
   "status": "failed",
-  "target_url": null,
   "started_at": "2026-07-25T19:02:42.221Z",
   "finished_at": "2026-07-25T19:02:59.436Z",
   "duration_seconds": 17.22,
@@ -324,9 +337,9 @@ Example `GET /test_runs/:id`:
   "pending_count": 0,
   "error_message": null,
   "test_case_results": [
-    { "id": 1, "full_description": "Homepage loads and shows the list of available examples", "status": "passed", "run_time": 2.73, "error_message": null },
-    { "id": 2, "full_description": "Login authenticates with valid credentials", "status": "passed", "run_time": 1.99, "error_message": null },
-    { "id": 3, "full_description": "Login rejects invalid credentials (deliberately failing example)", "status": "failed", "run_time": 11.9, "error_message": "expected to find text \"this-text-does-not-exist-on-purpose\" in \"...\"" }
+    { "id": 1, "full_description": "Homepage loads and shows the list of available examples", "status": "passed", "run_time": 2.73, "target_url": "https://the-internet.herokuapp.com", "error_message": null },
+    { "id": 2, "full_description": "Login authenticates with valid credentials", "status": "passed", "run_time": 1.99, "target_url": "https://the-internet.herokuapp.com", "error_message": null },
+    { "id": 3, "full_description": "Login rejects invalid credentials (deliberately failing example)", "status": "failed", "run_time": 11.9, "target_url": "https://the-internet.herokuapp.com", "error_message": "expected to find text \"this-text-does-not-exist-on-purpose\" in \"...\"" }
   ]
 }
 ```

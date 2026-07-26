@@ -1,10 +1,10 @@
 require "capybara"
 require "capybara/cuprite"
 
-# Defaults to a stable public demo site so the app is demonstrable out of the
-# box; pass `target_url` in POST /test_runs to point at the real target app
-# (RunExternalTestSuiteJob forwards it as the TARGET_URL env var below).
-Capybara.app_host = ENV.fetch("TARGET_URL", "https://the-internet.herokuapp.com")
+# Default host for specs that don't declare their own `app_host:` tag (see
+# support/app_host.rb) — there's no request-level override anymore, every
+# spec is expected to pin its own target.
+Capybara.app_host = "https://the-internet.herokuapp.com"
 Capybara.run_server = false
 Capybara.default_driver = :cuprite
 Capybara.javascript_driver = :cuprite

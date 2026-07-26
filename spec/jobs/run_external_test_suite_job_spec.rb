@@ -1,7 +1,7 @@
 require "rails_helper"
 
 RSpec.describe RunExternalTestSuiteJob do
-  let(:test_run) { TestRun.create!(status: :pending, target_url: "https://example.com") }
+  let(:test_run) { TestRun.create!(status: :pending) }
 
   def stub_rspec_output(json_path, payload)
     allow(Open3).to receive(:capture3) do |*_args, **_kwargs|
@@ -26,6 +26,29 @@ RSpec.describe RunExternalTestSuiteJob do
     expect(test_run.status).to eq("completed")
     expect(test_run.passed_count).to eq(1)
     expect(test_run.test_case_results.sole.status).to eq("passed")
+  end
+
+  it "persists each example's app_host as its target_url" do
+    json_path = Rails.root.join("tmp", "test_runs", "run_#{test_run.id}.json")
+    stub_rspec_output(json_path, {
+      "examples" => [
+        {
+          "full_description" => "does a thing", "description" => "does a thing",
+          "status" => "passed", "run_time" => 1.2, "app_host" => "https://example.com"
+        },
+        {
+          "full_description" => "does another thing", "description" => "does another thing",
+          "status" => "passed", "run_time" => 0.8, "app_host" => nil
+        }
+      ],
+      "summary" => { "example_count" => 2, "failure_count" => 0, "pending_count" => 0, "errors_outside_of_examples_count" => 0 }
+    })
+
+    described_class.perform_now(test_run.id)
+
+    test_run.reload
+    expect(test_run.test_case_results.find_by(full_description: "does a thing").target_url).to eq("https://example.com")
+    expect(test_run.test_case_results.find_by(full_description: "does another thing").target_url).to be_nil
   end
 
   it "marks the run failed and captures the error message when an example fails" do

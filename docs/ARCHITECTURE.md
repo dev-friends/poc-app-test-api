@@ -54,7 +54,7 @@ graph TB
     Jobs["jobs — Solid Queue worker<br/>(bin/jobs)"]
   end
   DB[("SQLite<br/>primary + queue db")]
-  Ext["External app under test<br/>(any URL, via target_url)"]
+  Ext["External app under test<br/>(any URL, via each spec's app_host: tag)"]
   OC["opencode CLI<br/>(baked into the image)"]
   Repo[("/rails<br/>bind-mounted repo")]
 
@@ -87,7 +87,6 @@ erDiagram
   TEST_RUN ||--o{ TEST_CASE_RESULT : "has many"
   TEST_RUN {
     string status "pending / running / completed / failed"
-    string target_url
     datetime started_at
     datetime finished_at
     integer total_count
@@ -100,6 +99,7 @@ erDiagram
     string full_description
     string status "passed / failed / pending"
     float run_time
+    string target_url "that example's app_host: tag, nil if untagged"
     text error_message
     text error_backtrace
   }
@@ -150,7 +150,7 @@ sequenceDiagram
   participant R as rspec subprocess
   participant E as External app under test
 
-  C->>W: POST /test_runs { target_url }
+  C->>W: POST /test_runs
   W->>D: INSERT test_runs (status: pending)
   alt another run is already pending/running
     D--xW: UNIQUE constraint violation
@@ -160,11 +160,11 @@ sequenceDiagram
     W-->>C: 201 Created { status: pending }
     Note over J,E: -- worker picks up the job --
     J->>D: UPDATE status = running
-    J->>R: Open3.capture3(bundle exec rspec --format json --out file)
-    R->>E: Capybara + Cuprite drive headless Chrome
+    J->>R: Open3.capture3(bundle exec rspec --format JsonWithAppHostFormatter --out file)
+    R->>E: Capybara + Cuprite drive headless Chrome, one host per spec's app_host: tag
     E-->>R: pages, DOM, network
-    R-->>J: exit status + one JSON file on disk
-    J->>D: INSERT test_case_results (one per example)
+    R-->>J: exit status + one JSON file on disk (each example includes its app_host)
+    J->>D: INSERT test_case_results (one per example, target_url = that example's app_host)
     J->>D: UPDATE status = completed / failed
   end
   C->>W: GET /test_runs/:id
@@ -181,15 +181,12 @@ run also means a Cuprite/Chrome crash takes down one job, not the worker.
 
 ```ruby
 # app/jobs/run_external_test_suite_job.rb (excerpt)
-env = { "HEADLESS" => "true" }
-env["TARGET_URL"] = test_run.target_url if test_run.target_url.present?
-
 _stdout, stderr, process_status = Open3.capture3(
-  env,
+  { "HEADLESS" => "true" },
   "bundle", "exec", "rspec",
   "-O", suite_dir.join(".rspec").to_s,
   "--require", suite_dir.join("spec_helper").to_s,
-  "--format", "json", "--out", json_path.to_s,
+  "--format", "JsonWithAppHostFormatter", "--out", json_path.to_s,
   suite_dir.join("specs").to_s,
   chdir: Rails.root.to_s
 )
@@ -207,9 +204,11 @@ explicit `--require spec_helper` — both by absolute path. That's what lets
 this job run cleanly from `Rails.root` without picking up the root
 project's own `.rspec`/`rails_helper`, which exist for a completely
 different suite ([§7](#7--two-rspec-suites-that-must-never-merge)). RSpec's
-`--format json --out` writes one complete JSON document to a file after the
-run finishes — contrast that with how opencode streams events, next
-section.
+built-in `json` formatter (`--format json --out`) writes one complete JSON
+document to a file after the run finishes; `JsonWithAppHostFormatter`
+subclasses it just to add each example's `app_host:` tag to that document
+(more on why in [§7](#7--two-rspec-suites-that-must-never-merge)) —
+contrast that with how opencode streams events, next section.
 
 ## 4 · Lifecycle of an opencode run
 
@@ -357,7 +356,7 @@ check:
 ```ruby
 # app/controllers/test_runs_controller.rb#create
 def create
-  test_run = TestRun.new(status: :pending, target_url: params[:target_url].presence)
+  test_run = TestRun.new(status: :pending)
   test_run.save!
   RunExternalTestSuiteJob.perform_later(test_run.id)
   render json: TestRunSerializer.new(test_run).as_json, status: :created
@@ -418,19 +417,22 @@ kept from ever sharing a boot path.
 
 | | `spec/` | `test_suites/external_app/` |
 |---|---|---|
-| Tests | this Rails app (controllers, jobs, models) | whatever external app `target_url` points at |
+| Tests | this Rails app (controllers, jobs, models) | whatever external app(s) each spec's `app_host:` tag points at |
 | Gems | `rspec-rails` | plain `rspec` + `capybara` + `cuprite` |
 | Boots Rails? | yes | no — standalone, no `rails_helper` |
 | Invoked by | a developer running `bundle exec rspec` | `RunExternalTestSuiteJob`, as a subprocess |
 | `.rspec` requires | `spec_helper` only — each file requires `rails_helper` explicitly | `spec_helper`, which pulls in Capybara/Cuprite config |
 
-The standalone suite sets `Capybara.app_host` to the target under test and
-turns off Capybara's own Rack server — there's no local app to boot,
-everything is remote HTTP:
+The standalone suite sets a default `Capybara.app_host` and turns off
+Capybara's own Rack server — there's no local app to boot, everything is
+remote HTTP. There's no request-level target override anymore: each spec
+tags its own `describe` block with `app_host: "https://..."`
+(`support/app_host.rb` overrides `Capybara.app_host` just for that spec's
+examples); a spec without the tag falls back to this default:
 
 ```ruby
 # test_suites/external_app/support/capybara_setup.rb
-Capybara.app_host = ENV.fetch("TARGET_URL", "https://the-internet.herokuapp.com")
+Capybara.app_host = "https://the-internet.herokuapp.com"
 Capybara.run_server = false
 Capybara.default_driver = :cuprite
 
@@ -447,6 +449,18 @@ end
 `browser_options` only adds `--no-sandbox` etc. when `CHROME_BIN` is set —
 that's the Docker-only codepath. Locally on macOS, Cuprite auto-discovers a
 real Chrome install and none of that is needed.
+
+Because each example can run against a different host, `target_url` lives
+on `TestCaseResult`, not `TestRun` — populated from that example's
+`app_host:` metadata. RSpec's built-in `--format json` formatter doesn't
+serialize custom metadata like `app_host` (it only emits a fixed set of
+fields — `id`, `description`, `full_description`, `status`, `file_path`,
+`line_number`, `run_time`, `pending_message`), so
+`test_suites/external_app/support/json_with_app_host_formatter.rb`
+subclasses `RSpec::Core::Formatters::JsonFormatter` and merges `app_host`
+into each example's hash. `RunExternalTestSuiteJob` invokes it with
+`--format JsonWithAppHostFormatter` instead of `--format json`, and reads
+`ex["app_host"]` when building each `TestCaseResult`.
 
 ```
 app_test_api/

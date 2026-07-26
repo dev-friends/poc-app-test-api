@@ -8,7 +8,6 @@ class TestRunSerializer
     result = {
       id: r.id,
       status: r.status,
-      target_url: r.target_url,
       started_at: r.started_at,
       finished_at: r.finished_at,
       duration_seconds: r.duration_seconds,

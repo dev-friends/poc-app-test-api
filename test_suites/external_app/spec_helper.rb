@@ -1,5 +1,6 @@
 require_relative "support/capybara_setup"
 require_relative "support/app_host"
+require_relative "support/json_with_app_host_formatter"
 require "capybara/rspec"
 
 RSpec.configure do |config|
