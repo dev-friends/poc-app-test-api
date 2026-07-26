@@ -12,4 +12,11 @@ Rails.application.routes.draw do
     member { get :results }
     collection { get :status }
   end
+
+  scope path: "opencode" do
+    resources :runs, only: [:index, :show, :create], controller: "opencode_runs"
+    resources :sessions, only: [:index, :destroy], controller: "opencode_sessions"
+    get "models", to: "opencode#models"
+    get "agents", to: "opencode#agents"
+  end
 end

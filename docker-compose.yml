@@ -7,6 +7,7 @@ services:
       RAILS_MASTER_KEY: ${RAILS_MASTER_KEY}
       SAMPLE_EXTERNAL_APP_URL: ${SAMPLE_EXTERNAL_APP_URL:-https://the-internet.herokuapp.com}
       OPENCODE_API_KEY: ${OPENCODE_API_KEY:-}
+      API_AUTH_TOKEN: ${API_AUTH_TOKEN}
     volumes:
       - .:/rails
       - db_data:/rails/storage
@@ -20,6 +21,7 @@ services:
       RAILS_MASTER_KEY: ${RAILS_MASTER_KEY}
       SAMPLE_EXTERNAL_APP_URL: ${SAMPLE_EXTERNAL_APP_URL:-https://the-internet.herokuapp.com}
       OPENCODE_API_KEY: ${OPENCODE_API_KEY:-}
+      API_AUTH_TOKEN: ${API_AUTH_TOKEN}
     volumes:
       - .:/rails
       - db_data:/rails/storage

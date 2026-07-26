@@ -10,7 +10,27 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_25_185408) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_26_003800) do
+  create_table "opencode_runs", force: :cascade do |t|
+    t.string "agent"
+    t.string "continue_session_id"
+    t.float "cost"
+    t.datetime "created_at", null: false
+    t.text "error_message"
+    t.datetime "finished_at"
+    t.integer "input_tokens"
+    t.string "model"
+    t.text "output_text"
+    t.integer "output_tokens"
+    t.text "prompt", null: false
+    t.text "raw_events"
+    t.string "session_id"
+    t.datetime "started_at"
+    t.string "status", default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.index ["status"], name: "index_opencode_runs_on_status"
+  end
+
   create_table "test_case_results", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "description"

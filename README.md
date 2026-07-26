@@ -20,6 +20,25 @@ trigger test runs and consume their results.
    `failed`.
 6. The client polls `/test_runs/status` and reads `/test_runs/:id/results`.
 
+There's also an `/opencode/*` group of endpoints that lets a caller drive the
+`opencode` CLI installed in the container (run a prompt, list models/agents/
+sessions) — see "opencode API" below.
+
+## Authentication
+
+**Every endpoint requires a fixed bearer token**, checked once in
+`ApplicationController` (so it covers `/test_runs/*` and `/opencode/*`
+alike):
+
+```
+Authorization: Bearer <API_AUTH_TOKEN>
+```
+
+Set `API_AUTH_TOKEN` in `.env` (generate one with `bin/rails secret`). The
+API refuses *every* request — including with no header at all — if this
+isn't configured; there's no "open" fallback mode. A request with a missing
+or wrong token gets `401`.
+
 ### Architecture
 
 - **Rails 8 (API-only)** — no views/assets, just JSON endpoints.
@@ -129,12 +148,14 @@ volume rather than leaking into your local `storage/` directory.
 
 ### 3. Use the API
 
-Same requests as the local setup, just against the containerized server:
+Same requests as the local setup, just against the containerized server
+(every request needs the `Authorization` header — see "Authentication"
+above):
 
 ```bash
-curl http://localhost:3000/test_runs/status
-curl -X POST http://localhost:3000/test_runs
-curl http://localhost:3000/test_runs/1/results
+curl -H "Authorization: Bearer $API_AUTH_TOKEN" http://localhost:3000/test_runs/status
+curl -H "Authorization: Bearer $API_AUTH_TOKEN" -X POST http://localhost:3000/test_runs
+curl -H "Authorization: Bearer $API_AUTH_TOKEN" http://localhost:3000/test_runs/1/results
 ```
 
 ### 4. Logs, rebuilding, stopping
@@ -195,7 +216,8 @@ declared in `docker-compose.yml`:
 
 Out of the box — with no configuration — the bundled example specs run
 against a public demo site (`https://the-internet.herokuapp.com`), so the
-whole pipeline is testable immediately:
+whole pipeline is testable immediately (all requests need the
+`Authorization` header, omitted below for brevity — see "Authentication"):
 
 ```bash
 curl http://localhost:3000/test_runs/status
@@ -231,15 +253,58 @@ curl http://localhost:3000/test_runs
    screens with Capybara (`visit`, `fill_in`, `click_button`,
    `expect(page).to have_content(...)`, etc.).
 
+## opencode API
+
+A separate group of endpoints drives the `opencode` CLI already installed in
+the container. `POST /opencode/runs` is **asynchronous** for the same reason
+`POST /test_runs` is: a prompt can take anywhere from a few seconds to
+minutes depending on tool use, so it returns immediately and you poll for
+the result — the response only contains the actual output once the run is
+`completed`.
+
+> **Security note:** `opencode/config/opencode.jsonc` has `"permission":
+> "allow"`, so opencode does not ask for approval before running shell
+> commands or editing files. Once `POST /opencode/runs` is reachable, an
+> authenticated caller can get opencode to do essentially anything inside
+> this container — the bearer token is the *only* gate. Keep it secret and
+> don't expose this port publicly without additional network controls.
+
+```bash
+curl -H "Authorization: Bearer $API_AUTH_TOKEN" -X POST http://localhost:3000/opencode/runs \
+  -d '{"prompt": "reply with exactly: pong"}'
+# 202 { "id": 1, "status": "pending", ... }
+
+curl -H "Authorization: Bearer $API_AUTH_TOKEN" http://localhost:3000/opencode/runs/1
+# poll until "status": "completed" — output_text/session_id/cost/tokens are populated then
+
+curl -H "Authorization: Bearer $API_AUTH_TOKEN" http://localhost:3000/opencode/models
+curl -H "Authorization: Bearer $API_AUTH_TOKEN" http://localhost:3000/opencode/agents
+curl -H "Authorization: Bearer $API_AUTH_TOKEN" http://localhost:3000/opencode/sessions
+curl -H "Authorization: Bearer $API_AUTH_TOKEN" -X DELETE http://localhost:3000/opencode/sessions/ses_abc123
+```
+
+Only `opencode run` supports `--format json`; `session list`, `session
+delete`, and `agent list` don't, so those three endpoints return the CLI's
+raw stdout as-is (`{ "output": "..." }`) rather than trying to parse
+plain-text/table output. `opencode models` genuinely is one model ID per
+line, so that one *is* split into a JSON array.
+
 ## API reference
 
-| Method | Route                     | Description                                                              |
-|--------|---------------------------|----------------------------------------------------------------------------|
-| GET    | `/test_runs/status`       | `{ running, current_run, last_run, ever_run }` — current state at a glance |
-| POST   | `/test_runs`               | Triggers a run (`target_url` optional). `201` + run, or `409` if one is active |
-| GET    | `/test_runs`               | Lists past runs (most recent first)                                       |
-| GET    | `/test_runs/:id`           | One run, with its `test_case_results` nested                             |
-| GET    | `/test_runs/:id/results`   | Just the individual test case results for that run                       |
+| Method | Route                       | Description                                                                |
+|--------|-----------------------------|------------------------------------------------------------------------------|
+| GET    | `/test_runs/status`         | `{ running, current_run, last_run, ever_run }` — current state at a glance |
+| POST   | `/test_runs`                 | Triggers a run (`target_url` optional). `201` + run, or `409` if one is active |
+| GET    | `/test_runs`                 | Lists past runs (most recent first)                                       |
+| GET    | `/test_runs/:id`             | One run, with its `test_case_results` nested                             |
+| GET    | `/test_runs/:id/results`     | Just the individual test case results for that run                       |
+| POST   | `/opencode/runs`             | Runs a prompt (`prompt` required; `agent`/`model`/`session_id` optional). `202` + pending run |
+| GET    | `/opencode/runs`             | Lists past opencode runs (most recent first)                             |
+| GET    | `/opencode/runs/:id`         | One run — `output_text`, `session_id`, `cost`, `input_tokens`/`output_tokens` once `completed` |
+| GET    | `/opencode/models`           | `{ models: [...] }` — optional `?provider=` filter                       |
+| GET    | `/opencode/agents`           | `{ output: "..." }` — raw `opencode agent list` output                   |
+| GET    | `/opencode/sessions`         | `{ output: "..." }` — raw `opencode session list` output                 |
+| DELETE | `/opencode/sessions/:id`     | `{ output: "..." }` — raw `opencode session delete` output               |
 
 Example `GET /test_runs/:id`:
 
