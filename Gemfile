@@ -39,7 +39,7 @@ gem "rack-cors"
 # the background job shells out to `bundle exec rspec` against the external app.
 gem "rspec", "~> 3.13"
 gem "capybara", "~> 3.40"
-gem "cuprite", "~> 0.15"
+gem "cuprite", "~> 0.18"
 
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
